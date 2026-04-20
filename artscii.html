@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCII CAM</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ascii-bg: #0a0a0a;
+    --ascii-fg: #00ff41;
+    --ascii-dim: #004d14;
+    --ascii-accent: #00cc33;
+    --ascii-ui: #1a1a1a;
+    --ascii-border: #00ff4133;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a0a;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 1.5rem;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  #root { width: 100%; max-width: 900px; }
+  #header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+  #title { font-family: 'VT323', monospace; font-size: 32px; color: var(--ascii-fg); letter-spacing: 2px; }
+  #status { font-size: 12px; color: var(--ascii-dim); letter-spacing: 1px; }
+  #main { position: relative; background: var(--ascii-bg); border-radius: 8px; border: 1px solid var(--ascii-border); overflow: hidden; min-height: 320px; }
+  #ascii-canvas { display: block; width: 100%; background: var(--ascii-bg); }
+  video { display: none; }
+  #controls { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  button {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    background: transparent;
+    color: var(--ascii-fg);
+    border: 1px solid var(--ascii-border);
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover { background: rgba(0,255,65,0.08); border-color: var(--ascii-fg); }
+  button:active { transform: scale(0.97); }
+  button.active { background: rgba(0,255,65,0.15); border-color: var(--ascii-fg); color: #fff; }
+  #slider-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ascii-dim); }
+  input[type=range] { accent-color: var(--ascii-fg); width: 90px; cursor: pointer; }
+  #overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ascii-bg);
+    flex-direction: column; gap: 14px;
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    color: var(--ascii-dim);
+    letter-spacing: 2px;
+    min-height: 300px;
+    z-index: 2;
+  }
+  #overlay button { font-size: 18px; padding: 10px 28px; border-color: var(--ascii-accent); color: var(--ascii-accent); }
+  #fps-badge { font-size: 11px; color: var(--ascii-dim); margin-left: auto; }
+  select {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    background: var(--ascii-ui);
+    color: var(--ascii-fg);
+    border: 1px solid var(--ascii-border);
+    padding: 5px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="header">
+    <span id="title">ASCII CAM</span>
+    <span id="status">// ready</span>
+  </div>
+  <div id="main">
+    <canvas id="ascii-canvas"></canvas>
+    <div id="overlay">
+      <div>[ NO SIGNAL ]</div>
+      <button onclick="startCamera()">INIT CAMERA</button>
+    </div>
+  </div>
+  <div id="controls">
+    <button id="pause-btn" onclick="togglePause()" style="display:none">PAUSE</button>
+    <button id="invert-btn" onclick="toggleInvert()">INVERT</button>
+    <button id="color-btn" onclick="toggleColor()" class="active">COLOR</button>
+    <select id="char-set" onchange="changeCharSet(this.value)">
+      <option value="detailed">DETAILED</option>
+      <option value="simple">SIMPLE</option>
+      <option value="blocks">BLOCKS</option>
+      <option value="binary">BINARY</option>
+      <option value="matrix">MATRIX</option>
+    </select>
+    <div id="slider-wrap">
+      <span>COLS</span>
+      <input type="range" id="cols-range" min="40" max="180" value="90" step="5" oninput="updateCols(this.value)">
+      <span id="cols-val">90</span>
+    </div>
+    <span id="fps-badge">-- fps</span>
+  </div>
+</div>
+
+<video id="video" autoplay playsinline muted></video>
+
+<script>
+const CHAR_SETS = {
+  detailed: ' .`-_\':,;^=+/"|\\<>ivxclrs{}#@',
+  simple:   ' .oO0@',
+  blocks:   ' ░▒▓█',
+  binary:   ' 01',
+  matrix:   ' ｦｧｨｩｪｫｬｭｮｯｱｲｳｴｵ01',
+};
+
+let paused  = false;
+let invert  = false;
+let colored = true;
+let charSet = CHAR_SETS.detailed;
+let numCols = 90;
+let running = false;
+let lastTime = 0;
+
+const video    = document.getElementById('video');
+const canvas   = document.getElementById('ascii-canvas');
+const ctx      = canvas.getContext('2d');
+const statusEl = document.getElementById('status');
+const overlay  = document.getElementById('overlay');
+const fpsBadge = document.getElementById('fps-badge');
+const pauseBtn = document.getElementById('pause-btn');
+
+const sample = document.createElement('canvas');
+const sCtx   = sample.getContext('2d', { willReadFrequently: true });
+
+const FONT_W = 8;
+const FONT_H = 13;
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+    overlay.style.display = 'none';
+    pauseBtn.style.display = '';
+    statusEl.textContent = '// streaming';
+    if (!running) {
+      running = true;
+      requestAnimationFrame(loop);
+    }
+  } catch (e) {
+    overlay.innerHTML =
+      `<div style="color:#ff4444;font-size:16px;">CAMERA DENIED</div>
+       <div style="font-size:12px;margin-top:6px;color:#666;">${e.message}</div>`;
+  }
+}
+
+function loop(ts) {
+  // always re-schedule first so the loop never dies
+  requestAnimationFrame(loop);
+
+  if (paused) return;
+  if (video.readyState < 2) return;
+
+  // throttle to ~20fps
+  if (ts - lastTime < 50) return;
+  fpsBadge.textContent = Math.round(1000 / (ts - lastTime)) + ' fps';
+  lastTime = ts;
+
+  drawFrame();
+}
+
+function drawFrame() {
+  const aspect = video.videoHeight / video.videoWidth || 0.75;
+  const rows   = Math.max(1, Math.round(numCols * aspect * (FONT_W / FONT_H)));
+
+  sample.width  = numCols;
+  sample.height = rows;
+  sCtx.drawImage(video, 0, 0, numCols, rows);
+
+  let pixels;
+  try {
+    pixels = sCtx.getImageData(0, 0, numCols, rows).data;
+  } catch (e) {
+    statusEl.textContent = '// pixel read blocked — use localhost';
+    return;
+  }
+
+  canvas.width  = numCols * FONT_W;
+  canvas.height = rows    * FONT_H;
+
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.font = `${FONT_H}px "Share Tech Mono", monospace`;
+  ctx.textBaseline = 'top';
+
+  const maxIdx = charSet.length - 1;
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < numCols; x++) {
+      const i   = (y * numCols + x) * 4;
+      const r   = pixels[i];
+      const g   = pixels[i + 1];
+      const b   = pixels[i + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      const val = invert ? 255 - lum : lum;
+      const idx = Math.max(0, Math.min(maxIdx, Math.floor(val / 255 * maxIdx)));
+      const ch  = charSet[idx];
+
+      if (!ch || !ch.trim()) continue;
+
+      ctx.fillStyle = colored
+        ? `rgb(${r},${g},${b})`
+        : `rgb(0,${Math.round(val * 0.63)},${Math.round(val * 0.25)})`;
+
+      ctx.fillText(ch, x * FONT_W, y * FONT_H);
+    }
+  }
+}
+
+function togglePause() {
+  paused = !paused;
+  pauseBtn.textContent = paused ? 'RESUME' : 'PAUSE';
+  pauseBtn.classList.toggle('active', paused);
+  statusEl.textContent = paused ? '// paused' : '// streaming';
+}
+function toggleInvert() {
+  invert = !invert;
+  document.getElementById('invert-btn').classList.toggle('active', invert);
+}
+function toggleColor() {
+  colored = !colored;
+  document.getElementById('color-btn').classList.toggle('active', colored);
+}
+function changeCharSet(v) {
+  charSet = CHAR_SETS[v] || CHAR_SETS.detailed;
+}
+function updateCols(v) {
+  numCols = +v;
+  document.getElementById('cols-val').textContent = v;
+}
+</script>
+</body>
+</html>
