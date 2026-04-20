@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCII CAM</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --fg: #00ff41;
+    --dim: #2a5c38;
+    --accent: #00cc33;
+    --panel: #111;
+    --border: rgba(0,255,65,0.18);
+    --active-bg: rgba(0,255,65,0.13);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); min-height: 100vh; display: flex; justify-content: center; padding: 1.2rem; font-family: 'Share Tech Mono', monospace; color: var(--fg); }
+  #app { width: 100%; max-width: 1000px; display: flex; gap: 14px; }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: 210px; flex-shrink: 0;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 12px;
+    display: flex; flex-direction: column; gap: 18px;
+    height: fit-content;
+  }
+  .s-title { font-family: 'VT323', monospace; font-size: 22px; letter-spacing: 2px; color: var(--fg); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .s-section { display: flex; flex-direction: column; gap: 6px; }
+  .s-label { font-size: 10px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
+
+  /* char set grid */
+  .cs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .cs-btn {
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    background: transparent; color: var(--dim);
+    border: 1px solid var(--border);
+    padding: 5px 4px; border-radius: 5px;
+    cursor: pointer; letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+  .cs-btn:hover { color: var(--fg); border-color: var(--fg); }
+  .cs-btn.active { background: var(--active-bg); color: var(--fg); border-color: var(--fg); }
+
+  /* color mode grid */
+  .cm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .cm-btn {
+    font-family: 'Share Tech Mono', monospace; font-size: 10px;
+    background: transparent; color: var(--dim);
+    border: 1px solid var(--border);
+    padding: 6px 4px; border-radius: 5px;
+    cursor: pointer; letter-spacing: 0.5px;
+    transition: all 0.15s; text-align: center; line-height: 1.3;
+  }
+  .cm-btn:hover { color: var(--fg); border-color: var(--fg); }
+  .cm-btn.active { background: var(--active-bg); color: var(--fg); border-color: var(--fg); }
+  .cm-swatch { display: block; width: 100%; height: 6px; border-radius: 3px; margin-top: 4px; }
+
+  /* custom color picker */
+  #custom-color-wrap { display: none; flex-direction: column; gap: 5px; }
+  #custom-color-wrap.show { display: flex; }
+  .color-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--dim); }
+  input[type=color] { width: 32px; height: 22px; border: 1px solid var(--border); border-radius: 4px; background: none; cursor: pointer; padding: 1px; }
+
+  /* slider */
+  .slider-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--dim); }
+  .slider-row input[type=range] { flex: 1; accent-color: var(--fg); }
+  .slider-row span { min-width: 24px; text-align: right; color: var(--fg); font-size: 11px; }
+
+  /* toggle */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--dim); }
+  .toggle {
+    position: relative; width: 36px; height: 18px;
+    background: var(--border); border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--border); transition: background 0.2s;
+  }
+  .toggle.on { background: rgba(0,255,65,0.25); border-color: var(--fg); }
+  .toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--dim); transition: transform 0.2s, background 0.2s;
+  }
+  .toggle.on::after { transform: translateX(18px); background: var(--fg); }
+
+  /* action buttons */
+  .act-btn {
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    background: transparent; color: var(--dim);
+    border: 1px solid var(--border);
+    padding: 7px; border-radius: 5px;
+    cursor: pointer; letter-spacing: 1px; width: 100%;
+    transition: all 0.15s;
+  }
+  .act-btn:hover { color: var(--fg); border-color: var(--fg); }
+  .act-btn.active { background: var(--active-bg); color: var(--fg); border-color: var(--fg); }
+  .act-btn.primary { border-color: var(--accent); color: var(--accent); }
+  .act-btn.primary:hover { background: rgba(0,204,51,0.1); }
+
+  /* ── MAIN AREA ── */
+  #main-col { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  #header { display: flex; align-items: baseline; gap: 10px; }
+  #title { font-family: 'VT323', monospace; font-size: 30px; letter-spacing: 2px; }
+  #status { font-size: 11px; color: var(--dim); letter-spacing: 1px; }
+  #fps-badge { font-size: 11px; color: var(--dim); margin-left: auto; }
+
+  #viewport { position: relative; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); overflow: hidden; min-height: 300px; }
+  #ascii-canvas { display: block; width: 100%; }
+  video { display: none; }
+
+  #overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px;
+    background: var(--bg);
+    font-family: 'VT323', monospace; font-size: 20px;
+    color: var(--dim); letter-spacing: 2px; z-index: 2;
+  }
+
+  @media (max-width: 680px) {
+    #app { flex-direction: column; }
+    #sidebar { width: 100%; }
+    .cs-grid { grid-template-columns: repeat(5, 1fr); }
+    .cm-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="s-title">// SETTINGS</div>
+
+    <!-- Char Set -->
+    <div class="s-section">
+      <div class="s-label">Char Set</div>
+      <div class="cs-grid">
+        <button class="cs-btn active" onclick="setCharSet('detailed',this)">DETAIL</button>
+        <button class="cs-btn" onclick="setCharSet('simple',this)">SIMPLE</button>
+        <button class="cs-btn" onclick="setCharSet('blocks',this)">BLOCKS</button>
+        <button class="cs-btn" onclick="setCharSet('binary',this)">BINARY</button>
+        <button class="cs-btn" onclick="setCharSet('matrix',this)">MATRIX</button>
+        <button class="cs-btn" onclick="setCharSet('braille',this)">BRAILLE</button>
+        <button class="cs-btn" onclick="setCharSet('minimal',this)">DOTS</button>
+        <button class="cs-btn" onclick="setCharSet('emoji',this)">EMOJI</button>
+      </div>
+    </div>
+
+    <!-- Color Mode -->
+    <div class="s-section">
+      <div class="s-label">Color Mode</div>
+      <div class="cm-grid">
+        <button class="cm-btn active" onclick="setColorMode('real',this)">
+          REAL
+          <span class="cm-swatch" style="background:linear-gradient(90deg,#f00,#0f0,#00f)"></span>
+        </button>
+        <button class="cm-btn" onclick="setColorMode('green',this)">
+          GREEN
+          <span class="cm-swatch" style="background:linear-gradient(90deg,#001,#0f4)"></span>
+        </button>
+        <button class="cm-btn" onclick="setColorMode('amber',this)">
+          AMBER
+          <span class="cm-swatch" style="background:linear-gradient(90deg,#110,#fa0)"></span>
+        </button>
+        <button class="cm-btn" onclick="setColorMode('cyan',this)">
+          CYAN
+          <span class="cm-swatch" style="background:linear-gradient(90deg,#001,#0ff)"></span>
+        </button>
+        <button class="cm-btn" onclick="setColorMode('red',this)">
+          RED
+          <span class="cm-swatch" style="background:linear-gradient(90deg,#100,#f44)"></span>
+        </button>
+        <button class="cm-btn" onclick="setColorMode('purple',this)">
+          PURP
+          <span class="cm-swatch" style="background:linear-gradient(90deg,#101,#c4f)"></span>
+        </button>
+        <button class="cm-btn" onclick="setColorMode('white',this)">
+          WHITE
+          <span class="cm-swatch" style="background:linear-gradient(90deg,#222,#fff)"></span>
+        </button>
+        <button class="cm-btn" onclick="setColorMode('custom',this)">
+          CUSTOM
+          <span class="cm-swatch" id="custom-swatch" style="background:linear-gradient(90deg,#000,#ff00ff)"></span>
+        </button>
+      </div>
+
+      <!-- custom color pickers -->
+      <div id="custom-color-wrap">
+        <div class="color-row">
+          <span>Dark</span>
+          <input type="color" id="cc-dark" value="#000000" oninput="updateCustomColor()">
+          <span id="cc-dark-hex" style="color:var(--fg);font-size:10px;">#000000</span>
+        </div>
+        <div class="color-row">
+          <span>Bright</span>
+          <input type="color" id="cc-bright" value="#ff00ff" oninput="updateCustomColor()">
+          <span id="cc-bright-hex" style="color:var(--fg);font-size:10px;">#ff00ff</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Density -->
+    <div class="s-section">
+      <div class="s-label">Columns</div>
+      <div class="slider-row">
+        <input type="range" min="30" max="180" value="90" step="5" oninput="updateCols(this.value)">
+        <span id="cols-val">90</span>
+      </div>
+    </div>
+
+    <!-- Background -->
+    <div class="s-section">
+      <div class="s-label">Background</div>
+      <div class="slider-row" style="gap:6px;">
+        <span style="font-size:10px;">Dark</span>
+        <input type="range" min="0" max="60" value="10" step="1" oninput="updateBg(this.value)" style="flex:1;">
+        <span style="font-size:10px;">Light</span>
+      </div>
+    </div>
+
+    <!-- Toggles -->
+    <div class="s-section">
+      <div class="toggle-row">
+        <span>INVERT</span>
+        <div class="toggle" id="t-invert" onclick="toggleInvert(this)"></div>
+      </div>
+      <div class="toggle-row" style="margin-top:6px;">
+        <span>MIRROR</span>
+        <div class="toggle on" id="t-mirror" onclick="toggleMirror(this)"></div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="s-section">
+      <button class="act-btn" id="pause-btn" onclick="togglePause()" style="display:none">⏸ PAUSE</button>
+      <button class="act-btn" onclick="saveFrame()" style="display:none" id="save-btn">💾 SAVE FRAME</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main-col">
+    <div id="header">
+      <span id="title">ASCII CAM</span>
+      <span id="status">// ready</span>
+      <span id="fps-badge"></span>
+    </div>
+    <div id="viewport">
+      <canvas id="ascii-canvas"></canvas>
+      <div id="overlay">
+        <div>[ NO SIGNAL ]</div>
+        <button class="act-btn primary" style="width:auto;padding:10px 28px;font-size:14px;" onclick="startCamera()">INIT CAMERA</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<video id="video" autoplay playsinline muted></video>
+
+<script>
+const CHAR_SETS = {
+  detailed: ' .`-_\':,;r^=+/"|\\<>ivxclrs{}#@',
+  simple:   ' .oO0@',
+  blocks:   ' ░▒▓█',
+  binary:   ' 01',
+  matrix:   ' ｦｧｨｩｪｫｬｭｮｯｱｲｳｴｵ01',
+  braille:  ' ⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠋⠌⠍⠎⠏⠿',
+  minimal:  ' ·∙•',
+  emoji:    ' ░▒▓⣿',
+};
+
+// Color modes: function(r,g,b,lum) => css color string
+const COLOR_MODES = {
+  real:   (r,g,b)        => `rgb(${r},${g},${b})`,
+  green:  (_,__,___,l)   => `rgb(0,${Math.round(l*0.9)},${Math.round(l*0.3)})`,
+  amber:  (_,__,___,l)   => `rgb(${Math.round(l*0.95)},${Math.round(l*0.6)},0)`,
+  cyan:   (_,__,___,l)   => `rgb(0,${Math.round(l*0.85)},${Math.round(l)})`,
+  red:    (_,__,___,l)   => `rgb(${Math.round(l)},${Math.round(l*0.15)},${Math.round(l*0.15)})`,
+  purple: (_,__,___,l)   => `rgb(${Math.round(l*0.7)},0,${Math.round(l)})`,
+  white:  (_,__,___,l)   => `rgb(${Math.round(l)},${Math.round(l)},${Math.round(l)})`,
+  custom: null, // set dynamically
+};
+
+let charSet   = CHAR_SETS.detailed;
+let colorMode = 'real';
+let numCols   = 90;
+let invert    = false;
+let mirror    = true;
+let paused    = false;
+let running   = false;
+let lastTime  = 0;
+let bgLevel   = 10;
+let customDark   = [0,0,0];
+let customBright = [255,0,255];
+
+const video    = document.getElementById('video');
+const canvas   = document.getElementById('ascii-canvas');
+const ctx      = canvas.getContext('2d');
+const statusEl = document.getElementById('status');
+const overlay  = document.getElementById('overlay');
+const fpsBadge = document.getElementById('fps-badge');
+const pauseBtn = document.getElementById('pause-btn');
+const saveBtn  = document.getElementById('save-btn');
+
+const sample = document.createElement('canvas');
+const sCtx   = sample.getContext('2d', { willReadFrequently: true });
+
+const FONT_W = 8;
+const FONT_H = 13;
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+    overlay.style.display = 'none';
+    pauseBtn.style.display = '';
+    saveBtn.style.display  = '';
+    statusEl.textContent   = '// streaming';
+    if (!running) { running = true; requestAnimationFrame(loop); }
+  } catch (e) {
+    overlay.innerHTML = `<div style="color:#f44;font-size:16px;">CAMERA DENIED</div><div style="font-size:12px;margin-top:6px;color:#666;">${e.message}</div>`;
+  }
+}
+
+function loop(ts) {
+  requestAnimationFrame(loop);
+  if (paused || video.readyState < 2) return;
+  if (ts - lastTime < 48) return;
+  fpsBadge.textContent = Math.round(1000 / (ts - lastTime)) + ' fps';
+  lastTime = ts;
+  drawFrame();
+}
+
+function drawFrame() {
+  const aspect = video.videoHeight / video.videoWidth || 0.75;
+  const rows   = Math.max(1, Math.round(numCols * aspect * (FONT_W / FONT_H)));
+
+  sample.width  = numCols;
+  sample.height = rows;
+
+  if (mirror) {
+    sCtx.save();
+    sCtx.translate(numCols, 0);
+    sCtx.scale(-1, 1);
+  }
+  sCtx.drawImage(video, 0, 0, numCols, rows);
+  if (mirror) sCtx.restore();
+
+  let pixels;
+  try { pixels = sCtx.getImageData(0, 0, numCols, rows).data; }
+  catch (e) { statusEl.textContent = '// pixel read blocked — use localhost'; return; }
+
+  canvas.width  = numCols * FONT_W;
+  canvas.height = rows    * FONT_H;
+
+  const bg = bgLevel;
+  ctx.fillStyle = `rgb(${bg},${bg},${bg})`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.font = `${FONT_H}px "Share Tech Mono", monospace`;
+  ctx.textBaseline = 'top';
+
+  const maxIdx = charSet.length - 1;
+  const colorFn = colorMode === 'custom' ? customColorFn : COLOR_MODES[colorMode];
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < numCols; x++) {
+      const i   = (y * numCols + x) * 4;
+      const r   = pixels[i], g = pixels[i+1], b = pixels[i+2];
+      const lum = 0.299*r + 0.587*g + 0.114*b;
+      const val = invert ? 255 - lum : lum;
+      const idx = Math.max(0, Math.min(maxIdx, Math.floor(val / 255 * maxIdx)));
+      const ch  = charSet[idx];
+      if (!ch || !ch.trim()) continue;
+      ctx.fillStyle = colorFn(r, g, b, val);
+      ctx.fillText(ch, x * FONT_W, y * FONT_H);
+    }
+  }
+}
+
+function customColorFn(r, g, b, lum) {
+  const t  = lum / 255;
+  const dr = customDark[0],   dg = customDark[1],   db = customDark[2];
+  const br = customBright[0], bg2= customBright[1], bb = customBright[2];
+  return `rgb(${Math.round(dr + (br-dr)*t)},${Math.round(dg + (bg2-dg)*t)},${Math.round(db + (bb-db)*t)})`;
+}
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+
+// ── UI handlers ──
+function setCharSet(name, btn) {
+  charSet = CHAR_SETS[name] || CHAR_SETS.detailed;
+  document.querySelectorAll('.cs-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function setColorMode(name, btn) {
+  colorMode = name;
+  document.querySelectorAll('.cm-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('custom-color-wrap').classList.toggle('show', name === 'custom');
+}
+
+function updateCustomColor() {
+  const d = document.getElementById('cc-dark').value;
+  const br = document.getElementById('cc-bright').value;
+  customDark   = hexToRgb(d);
+  customBright = hexToRgb(br);
+  document.getElementById('cc-dark-hex').textContent   = d;
+  document.getElementById('cc-bright-hex').textContent = br;
+  document.getElementById('custom-swatch').style.background = `linear-gradient(90deg,${d},${br})`;
+}
+
+function updateCols(v) {
+  numCols = +v;
+  document.getElementById('cols-val').textContent = v;
+}
+
+function updateBg(v) {
+  bgLevel = +v;
+}
+
+function toggleInvert(el) {
+  invert = !invert;
+  el.classList.toggle('on', invert);
+}
+
+function toggleMirror(el) {
+  mirror = !mirror;
+  el.classList.toggle('on', mirror);
+}
+
+function togglePause() {
+  paused = !paused;
+  pauseBtn.textContent = paused ? '▶ RESUME' : '⏸ PAUSE';
+  pauseBtn.classList.toggle('active', paused);
+  statusEl.textContent = paused ? '// paused' : '// streaming';
+}
+
+function saveFrame() {
+  const link = document.createElement('a');
+  link.download = 'ascii_frame.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+</script>
+</body>
+</html>
