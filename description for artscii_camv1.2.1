@@ -1,0 +1,174 @@
+# 📷 ASCII CAM v1.2.1
+
+A real-time webcam-to-ASCII art converter that runs entirely in the browser — no server, no dependencies, no install. Drop a photo or point your camera, and watch it render as live ASCII art with full visual controls, effects, and export options.
+
+
+
+## ✨ Features
+
+### 🎥 Source Modes
+- **Live camera** — real-time webcam feed converted to ASCII at up to 30 fps
+- **Image upload** — drop any photo and convert it to ASCII instantly
+
+### 🔤 Character Sets (8 options)
+| Set | Characters Used |
+|---|---|
+| **Detailed** | Dense ramp from space to `@` — most realistic |
+| **Simple** | ` .oO0@` — clean and minimal |
+| **Blocks** | ` ░▒▓█` — chunky retro feel |
+| **Binary** | ` 01` — hacker aesthetic |
+| **Matrix** | Japanese katakana + digits |
+| **Braille** | Unicode braille dots |
+| **Dots** | ` ·∙•` — ultra minimal |
+| **Custom** | Type your own characters in light→dark order |
+
+### 🌈 Color Modes (9 options)
+| Mode | Description |
+|---|---|
+| **Real** | Each character colored with the actual pixel color |
+| **Green** | Classic terminal green monochrome |
+| **Amber** | Retro CRT amber glow |
+| **Cyan** | Cool neon cyan wash |
+| **Red** | Dramatic red tones |
+| **Purple** | Deep purple wash |
+| **White** | Pure grayscale |
+| **Rainbow** | Hue cycles continuously based on brightness |
+| **Custom** | Pick your own dark and bright colors — app interpolates between them |
+
+### 🎛️ Adjustments
+- **Font Size** slider — from tiny (maximum detail) to large (chunky retro)
+- **Brightness** slider — brighten or darken the source before converting (-100 to +100)
+- **Contrast** slider — boost or reduce contrast (-100 to +100)
+- **Columns** slider — control character density (30 to 200 columns)
+- **Background** slider — from pitch black to near-white
+- **FPS Cap** — choose 10, 20, or 30 fps based on device performance
+
+### ✨ Effects
+| Effect | Description |
+|---|---|
+| **GLITCH** | Randomly corrupts ~0.5% of characters each frame for a cyberpunk look |
+| **RAIN** | Matrix-style falling characters overlay on top of the feed |
+| **HUE ROT** | Continuously rotates hue over time — trippy color cycling |
+| **EDGES** | Sobel edge detection — outlines only, like a sketch |
+| **CHROM AB** | Chromatic aberration — splits R and B channels for a retro CRT feel |
+| **SCANLINE** | CRT scanline overlay — horizontal lines across the output |
+
+### 💾 Export & Share
+- **Save PNG** — download the current frame as a high-quality PNG
+- **Copy Text** — copy the ASCII art as plain text to clipboard (paste anywhere)
+- **Fullscreen** — hide sidebar, go edge-to-edge
+
+### ⌨️ Keyboard Shortcuts
+| Key | Action |
+|---|---|
+| `Space` | Pause / Resume |
+| `S` | Save current frame as PNG |
+| `F` | Toggle fullscreen |
+| `←` | Decrease column count |
+| `→` | Increase column count |
+
+### ⚡ Performance
+- Auto-pauses rendering when the tab is hidden (Page Visibility API)
+- Offscreen canvas for pixel sampling — keeps main thread responsive
+- Throttled render loop — only redraws when a new frame is due
+
+---
+
+## 🚀 Quick Start
+
+> ⚠️ **Must be served via localhost** — browsers block `getImageData()` on `file://` URLs for security reasons.
+
+### Option 1 — Python (no install required)
+```bash
+git clone https://github.com/ayuuXploits/ascii-cam.git
+cd ascii-cam
+python -m http.server 8080
+# Open: http://localhost:8080/ascii_cam.html
+```
+
+### Option 2 — Node.js
+```bash
+npx serve .
+# Open the URL shown in terminal
+```
+
+### Option 3 — VS Code
+Install **Live Server** extension → right-click `ascii_cam.html` → **Open with Live Server**
+
+---
+
+## 🧠 How It Works
+
+```
+Camera / Image
+     │
+     ▼
+Offscreen <canvas> (sampled at col × row resolution)
+     │
+     ├─ getImageData() → pixel RGBA array
+     │
+     ├─ Per pixel:
+     │    luminance → char index → character
+     │    RGB → color function → fill color
+     │
+     ├─ ctx.fillText() per character onto visible canvas
+     │
+     └─ FX overlays: rain, scanlines, glitch, edge detection
+```
+
+1. Video/image is drawn into a small offscreen canvas at target resolution
+2. `getImageData()` reads each pixel's RGBA values
+3. Luminance maps to a character in the selected set (brighter = less dense)
+4. The selected color mode determines each character's color
+5. Characters are drawn with `ctx.fillText()` onto the visible canvas
+6. Effect overlays (rain, glitch, scanlines, edges) are applied on top
+7. Loop runs via `requestAnimationFrame` throttled to the chosen FPS cap
+
+---
+
+## 🗂️ Project Structure
+
+```
+ascii-cam/
+└── ascii_cam.html    # Entire app — self-contained single file
+└── README.md
+```
+
+---
+
+## 🖥️ Browser Compatibility
+
+| Browser | Status |
+|---|---|
+| Chrome 80+ | ✅ Full support |
+| Firefox 75+ | ✅ Full support |
+| Edge 80+ | ✅ Full support |
+| Safari 14+ | ✅ Full support |
+| Mobile Chrome | ✅ Works (front camera) |
+| Mobile Safari | ⚠️ Works but may be slower |
+
+---
+
+## 🛣️ Roadmap
+
+- [ ] GIF / WebM recording and export
+- [ ] Share snapshot via URL (base64 encoded frame)
+- [ ] Mobile rear camera toggle
+- [ ] Web Worker for pixel processing (better mobile performance)
+- [ ] Preset system — save and load your favorite settings
+
+---
+
+## 📄 License
+
+MIT — do whatever you want with it.
+
+---
+
+## 🤝 Contributing
+
+PRs welcome! Ideas for contribution: GIF export, new color modes, new effect types, mobile optimizations, or anything creative.
+
+---
+
+*Pure HTML, CSS, and vanilla JavaScript. No frameworks. No bundlers. No nonsense.*
