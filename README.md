@@ -14,7 +14,7 @@ A real-time webcam-to-ASCII art converter that runs entirely in the browser — 
 
 ## ✨ Features
 
-- **Live camera feed** converted to ASCII art in real-time (~20 fps)
+- **Live camera feed** converted to ASCII art in real-time (~30 fps)
 - **8 character sets** — Detailed, Simple, Blocks, Binary, Matrix, Braille, Dots, Emoji
 - **8 color modes** — Real colors, Green, Amber, Cyan, Red, Purple, White, and Custom
 - **Custom color picker** — choose your own dark and bright colors with gradient interpolation
