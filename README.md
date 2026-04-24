@@ -56,7 +56,7 @@ Install the **Live Server** extension → right-click `ascii_cam.html` → **Ope
 
 ## 🎮 Controls
 
-| Control | Description |
+| Control | Description ||
 |---|---|
 | **INIT CAMERA** | Request camera access and start the feed |
 | **PAUSE / RESUME** | Freeze or unfreeze the current frame |
